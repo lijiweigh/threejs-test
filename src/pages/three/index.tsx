@@ -3,9 +3,15 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
 import { TrackballControls } from 'three/examples/jsm/controls/TrackballControls'
 import { Rubik } from './rubik'
+import { TouchLine } from './touch-line'
 
 const width = window.innerWidth
 const height = window.innerHeight
+
+const frontViewName = 'front-rubik'
+const endViewName = 'end-rubik'
+
+const minPercent = 0.25
 
 export default function ThreeTest() {
   const canvas = useRef<HTMLCanvasElement | null>(null)
@@ -16,9 +22,14 @@ export default function ThreeTest() {
   const ambientLight = useRef<THREE.AmbientLight>()
   const cube = useRef<THREE.Mesh>()
   const scene = useRef<THREE.Scene>()
-  const rubik = useRef<Rubik>()
+  const frontRubik = useRef<Rubik>()
+  const endRubik = useRef<Rubik>()
   const orbitController = useRef<OrbitControls>()
   const trackBall = useRef<TrackballControls>()
+  const touchLine = useRef<TouchLine>()
+
+  const originHeight = useRef(750)
+  const originWidth = useRef(64)
 
   const initRender = useCallback(() => {
    if (canvas.current) {
@@ -39,10 +50,11 @@ export default function ThreeTest() {
     camera.current.lookAt(originPoint.current)
 
     if (renderer.current) {
-      orbitController.current = new OrbitControls(camera.current, renderer.current.domElement)
-      orbitController.current.enableZoom = false
-      orbitController.current.rotateSpeed = 2
-      orbitController.current.target = originPoint.current
+      // orbitController.current = new OrbitControls(camera.current, renderer.current.domElement)
+      // orbitController.current.enableZoom = false
+      // orbitController.current.rotateSpeed = 2
+      // orbitController.current.target = originPoint.current
+
       // trackBall.current = new TrackballControls(camera.current, renderer.current.domElement)
       // trackBall.current.rotateSpeed = 1.0;
       // trackBall.current.zoomSpeed = 1.2;
@@ -64,9 +76,20 @@ export default function ThreeTest() {
     // const material = new THREE.MeshLambertMaterial({color: 0xff0000})
     // cube.current = new THREE.Mesh(geometry, material)
     // cube.current.position.set(0, 0, 0)
-    if (scene.current) {
-      rubik.current = new Rubik(scene.current)
-      rubik.current.model()
+    if (scene.current && camera.current) {
+      originHeight.current = Math.tan(22.5 / 180 * Math.PI) * camera.current.position.z * 2
+      originWidth.current = originHeight.current * camera.current.aspect
+
+      frontRubik.current = new Rubik(scene.current, minPercent, originHeight.current)
+      frontRubik.current.model(frontViewName)
+
+      endRubik.current = new Rubik(scene.current, minPercent, originHeight.current)
+      endRubik.current.model(endViewName)
+
+      frontRubik.current.resizeHeight(0.5, 1)
+      endRubik.current.resizeHeight(0.5, -1)
+
+      touchLine.current = new TouchLine(scene.current, originWidth.current, minPercent, originHeight.current)
     }
 
   }, [])
@@ -92,6 +115,39 @@ export default function ThreeTest() {
     }
   }, [])
 
+  const rubikResize = useCallback((f: number, e: number) => {
+    if (frontRubik.current && endRubik.current) {
+      frontRubik.current.resizeHeight(f, 1)
+      endRubik.current.resizeHeight(e, -1)
+    }
+  }, [])
+
+  const onMouseDown = useCallback((e: MouseEvent) => {
+    console.log('onMouseDown', e)
+    touchLine.current?.enable()
+  }, [])
+
+  const onMouseMove = useCallback((e: MouseEvent) => {
+    // console.log('onMouseMove', e)
+    if (touchLine.current?.isActive) {
+      touchLine.current.move(e.clientY)
+      const frontPercent = e.clientY / window.innerHeight
+      const endPercent = 1 - frontPercent
+      rubikResize(frontPercent, endPercent)
+    }
+  }, [])
+
+  const onMouseUp = useCallback((e: MouseEvent) => {
+    console.log('onMouseUp', e)
+    touchLine.current?.disable()
+  }, [])
+
+  const initEvent = useCallback(() => {
+    document.body.addEventListener('mousedown', onMouseDown)
+    document.body.addEventListener('mousemove', onMouseMove)
+    document.body.addEventListener('mouseup', onMouseUp)
+  }, [])
+
   useEffect(() => {
     if (canvas.current) {
       initRender()
@@ -101,6 +157,7 @@ export default function ThreeTest() {
       initScene()
       initObject()
       render()
+      initEvent()
     }
   }, [])
 

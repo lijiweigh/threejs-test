@@ -34,7 +34,6 @@ function SimpleCube(x: number, y: number, z: number, num: number, len: number, c
   const leftUpX = x - num / 2 * len
   const leftUpY = y + num / 2 * len
   const leftUpZ = z + num / 2 * len
-  console.log(leftUpX, leftUpY, leftUpZ)
   const cubes = []
   for (let i = 0; i < num; i++) {
     for (let j = 0; j < num * num; j++) {
@@ -53,7 +52,6 @@ function SimpleCube(x: number, y: number, z: number, num: number, len: number, c
       cube.position.x = (leftUpX + len / 2) + (j % num) * len
       cube.position.y = (leftUpY - len / 2) - (parseInt(String(j / num)) * len)
       cube.position.z = (leftUpZ - len / 2) - i * len
-      console.log(cube.position)
       cubes.push(cube)
     }
   }
@@ -63,16 +61,43 @@ function SimpleCube(x: number, y: number, z: number, num: number, len: number, c
 export class Rubik {
   scene: THREE.Scene
   cubes: THREE.Mesh<THREE.BoxGeometry, THREE.MeshLambertMaterial[]>[]
+  group: THREE.Group
+  minPercent: number
+  originHeight: number
 
-  constructor(scene: THREE.Scene) {
+  constructor(scene: THREE.Scene, minPercent: number, originHeight: number) {
     this.scene = scene
     this.cubes = []
+    this.group = new THREE.Group()
+    this.minPercent = minPercent
+    this.originHeight = originHeight
   }
 
-  model() {
+  model(type: string) {
+    this.group = new THREE.Group()
+    // @ts-ignore
+    this.group.childType = type
     this.cubes = SimpleCube(BasicParams.x, BasicParams.y, BasicParams.z, BasicParams.num, BasicParams.len, BasicParams.colors)
     for(const c of this.cubes) {
-      this.scene.add(c)
+      this.group.add(c)
     }
+    if(type === 'front-rubik'){
+      this.group.rotateY(45/180*Math.PI);
+    } else{
+      this.group.rotateY((270-45) / 180 * Math.PI);
+    }
+    this.group.rotateOnAxis(new THREE.Vector3(1, 0, 1), 25 / 180 * Math.PI);
+    this.scene.add(this.group)
+  }
+
+  resizeHeight(percent: number, tag: number) {
+    if (percent < this.minPercent) {
+      percent = this.minPercent
+    }
+    if (percent > (1 - this.minPercent)) {
+      percent = 1 - this.minPercent
+    }
+    this.group.scale.set(percent, percent, percent)
+    this.group.position.y = this.originHeight * (0.5 - percent / 2) * tag
   }
 }
